@@ -1,0 +1,544 @@
+---
+title: Caching Strategies
+description: A guide to mastering caching in pwa
+---
+
+import { Callout } from "nextra/components";
+
+# What is caching ?
+
+Caching is a technique used to store frequently accessed data in a temporary storage location for faster retrieval. It improves system performance by reducing the time needed to fetch data from the primary source, such as a database or a remote server. Common types of caching include memory caching, disk caching, and web caching, which are widely used in computers, browsers, and networks. By reducing latency and load times, caching enhances efficiency and user experience. However, it requires proper management to prevent issues like stale data, excessive storage usage, or cache invalidation problems.
+
+## Caching Demystified
+
+### Why Caching matters in a PWA?
+
+Caching helps:
+
+- Reduce load time by serving cached resources.
+- Provide offline support by storing essential assets
+- Improve performance by reducing network requests.
+- Optimize bandwidth usage by preventing redundant downloads.
+
+### What to cache ?
+
+The first question you may have about caching is what to cache. While there is no single answer to that question, you can start with all the minimum resources that you need to render the user interface.
+
+Those resources should include:
+
+- The main page HTML (your app's start_url).
+- CSS stylesheets needed for the main user interface.
+- Images used in the user interface.
+- JavaScript files required to render the user interface.
+- Data, such as a JSON file, required to render a basic experience.
+- Web fonts.
+- On a multi-page application, other HTML documents that you want to serve fast or while offline.
+
+```js filename="sw.js"
+const CACHE_NAME = "my-cache-v1";
+const URLS_TO_CACHE = [
+  "/",
+  "/index.html",
+  "/styles.css",
+  "/app.js",
+  "/logo.png",
+  "/data.json",
+  "https://fonts.googleapis.com/css?family=Roboto",
+];
+
+// Install service worker and cache resources
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      console.log("Caching essential resources");
+      return cache.addAll(URLS_TO_CACHE);
+    })
+  );
+});
+```
+
+### When to cache ?
+
+In your PWA, you are in charge of deciding when to cache files. While one approach is to store as many assets as possible when the service worker is installed, it is usually not the best idea. Caching unnecessary resources wastes bandwidth and storage space and could cause your app to serve unintended outdated resources.
+
+You don't need to cache all the assets at once, you can cache assets many times during the lifecycle of your PWA, such as:
+
+- On installation of the service worker.
+- After the first page load.
+- When the user navigates to a section or route.
+- When the network is idle.
+
+### Where to cache ?
+
+In a Progressive Web App (PWA), caching is handled on the client-side using a Service Worker and the Cache Storage API. The caching happens in:
+
+- Cache Storage (via Service Worker) – Primary Cache
+- IndexedDB – For Structured Data
+- LocalStorage / SessionStorage – For Small Data
+- Browser HTTP Cache – Secondary Cache
+
+#### Cache Storage
+
+The cache storage is the primary storage used by service workers is the best place to cache essential assets for offline use. This storage is used for storing HTML, CSS, JS, images, fonts, and API responses.
+cache storage works independently from the browser’s HTTP cache.
+
+**where does this cache live**
+
+- Cached resources are stored in the Cache Storage API, which is part of the browser’s storage system (visible in DevTools under "Application > Cache Storage").
+- Data persists even after a page refresh or closing the browser.
+
+Example: Storing assets in Cache Storage
+
+```js filename="sw.js"
+const CACHE_NAME = "pwa-cache-v1";
+const URLS_TO_CACHE = [
+  "/",
+  "/index.html",
+  "/styles.css",
+  "/app.js",
+  "/logo.png",
+];
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(URLS_TO_CACHE);
+    })
+  );
+});
+```
+
+#### IndexedDB
+
+For PWAs requiring robust offline capabilities, IndexedDB, a NoSQL database built into the browser, is ideal as it's good for caching large datasets (e.g., API responses, user-generated content) and works asynchronously, making it more efficient than LocalStorage
+
+```js filename="sw.js"
+let db;
+const request = indexedDB.open("pwa-database", 1);
+
+request.onsuccess = (event) => {
+  db = event.target.result;
+};
+
+request.onupgradeneeded = (event) => {
+  db = event.target.result;
+  db.createObjectStore("posts", { keyPath: "id" });
+};
+```
+
+#### LocalStorage / SessionStorage
+
+For simple data persistence in the browser, Web Storage stores key-value pairs, with LocalStorage retaining data even after closing the browser, while SessionStorage clears data upon tab closure
+
+LocalStorage is suitable for storing user settings, such as theme or language preferences, and caching small amounts of data for quick retrieval; however, it's not recommended for large datasets, which are better handled by IndexedDB, or sensitive data, due to its inherent lack of security
+
+Example: Storing inside LocalStorage
+
+```js filename="sw.js"
+localStorage.setItem("theme", "dark");
+console.log(localStorage.getItem("theme")); // "dark"
+```
+
+#### Browser HTTP Cache
+
+The browser automatically caches responses based on HTTP headers like Cache-Control, Expires, and ETag. PWA developers don’t control it directly, but it’s useful for static assets.
+The browser http cache is best used for speeding up future requests for unchanged resources and reducing unnecessary network calls.
+
+## Caching Strategies
+
+There are multiple caching strategies, each suited for different use cases:
+
+1. Cache-First (Cache Falling Back to Network)
+2. Network-First (Network Falling Back to Cache)
+3. Stale-While-Revalidate
+4. Cache-Only
+5. Network-Only
+6. Custom Strategy (Hybrid Approach)
+
+### Cache-First (Cache Falling Back to Network)
+
+The Cache-First strategy prioritizes the cache as the primary source of data. It checks the cache first, and if the requested resource is found, it's served directly from the cache. Only if the resource is not found in the cache does the service worker make a network request.
+
+**How it works**
+
+- Intercept Network Request: The service worker's `fetch` event listener intercepts all network requests.
+- Check the Cache: The service worker uses the `caches.match()` method to check if the requested resource exists in the cache.
+- Serve from Cache (If Found): If `caches.match()` returns a matching response, the service worker returns the cached response to the browser.
+- Fetch from Network (If Not Found): If `caches.match()` returns `undefined` (no match), the service worker uses the `fetch()` API to make a network request.
+- Cache the Network Response (Optional): After fetching the resource from the network, the service worker can optionally cache the response using `caches.put()` to store it for future requests.
+- Return Network Response: The service worker returns the network response to the browser.
+
+```js filename="sw.js"
+self.addEventListener("fetch", (event) => {
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(event.request).then((networkResponse) => {
+        return caches.open("my-cache").then((cache) => {
+          cache.put(event.request, networkResponse.clone());
+          return networkResponse;
+        });
+      });
+    })
+  );
+});
+```
+
+**Advantages:**
+
+- Offline Support: Provides excellent offline capabilities, as resources are served from the cache even when the network is unavailable.
+- Performance: Offers fast loading times, as resources are retrieved from the cache, which is significantly faster than network requests.
+- Reliability: Ensures a consistent user experience, even in unreliable network conditions.
+
+**Disadvantages:**
+
+- Stale Data: Can serve stale data if the cached version is outdated and the network is unavailable.
+- Cache Invalidation: Requires careful cache invalidation strategies to ensure users receive up-to-date content.
+- Initial Network Request: The first time a resource is requested, it still requires a network request.
+
+**When to Use Cache-First:**
+
+- **Static Assets:** Ideal for caching static assets like HTML, CSS, JavaScript, images, and fonts, which rarely change.
+- **Application Shell:** Suitable for caching the application shell, providing an instant loading experience.
+- **Offline-First Applications:** Essential for applications that prioritize offline functionality.
+- **Resources with Low Update Frequency:** Appropriate for resources that don't change frequently.
+
+<Callout type="info">
+
+Key Considerations:
+
+- Cache Versioning: Use cache versioning to invalidate the cache when updates are available.
+- Cache Management: Implement strategies for managing cache size and removing outdated resources.
+- Network Status: Consider the network status when deciding whether to cache network responses.
+- Data Freshness: If data freshness is critical, explore other caching strategies like "Network-First" or "Stale-While-Revalidate."
+- Error Handling: Implement robust error handling to gracefully handle network failures and cache errors.
+
+</Callout>
+
+### Network-First (Network Falling Back to Cache)
+
+The Network-First strategy prioritizes fetching resources from the network. It attempts to retrieve the latest version of a resource from the network first. If the network request is successful, the response is served to the user, and optionally, it's also stored in the cache. If the network request fails (e.g., due to network unavailability), the service worker falls back to serving the resource from the cache.
+
+**How it Works:**
+
+- Intercept Network Request: The service worker's `fetch` event listener intercepts all network requests.
+- Fetch from Network: The service worker uses the `fetch()` API to make a network request for the resource.
+- Serve Network Response (If Successful): If the network request is successful (returns a 2xx status code), the service worker returns the network response to the browser.
+- Cache Network Response (Optional): After successfully fetching from the network, the service worker can optionally cache the response using `caches.put()` to store it for future requests.
+- Fallback to Cache (If Network Fails): If the network request fails (e.g., throws an error or returns a non-2xx status code), the service worker uses `caches.match()` to check if the resource exists in the cache.
+- Serve from Cache (If Found): If `caches.match()` returns a matching response, the service worker returns the cached response to the browser.
+- Handle Network and Cache Failure (If Cache Not Found): If both the network request and the cache lookup fail, the service worker can return a fallback response (e.g., a generic offline page) or display an error message
+
+```js filename="sw.js"
+self.addEventListener("fetch", (event) => {
+  event.respondWith(
+    fetch(event.request)
+      .then((networkResponse) => {
+        // Network success - cache the response
+        caches.open("my-cache").then((cache) => {
+          cache.put(event.request, networkResponse.clone());
+        });
+        return networkResponse;
+      })
+      .catch(() => {
+        // Network failure - try to serve from cache
+        return caches.match(event.request).then((cacheResponse) => {
+          if (cacheResponse) {
+            return cacheResponse;
+          }
+          // Both network and cache failed
+          return new Response("Offline - No cached content available", {
+            status: 503,
+            statusText: "Service Unavailable",
+          });
+        });
+      })
+  );
+});
+```
+
+**Advantages**
+
+- Up-to-Date Content: Ensures users receive the latest version of resources when the network is available.
+- Reliable Network Performance: Provides a good experience in areas with stable network connectivity.
+- Offline Fallback: Offers offline support by falling back to cached resources when the network is unavailable.
+
+**Disadvantages**
+
+- Slower Initial Load Time: Can result in slower initial load times compared to the Cache-First strategy, as it always attempts to fetch from the network first.
+- Network Dependency: Relies on network availability for the most up-to-date data.
+- Potential Network Latency: Users may experience network latency when retrieving resources from the network.
+
+**When to Use Network-First**
+
+- Dynamic Content: Ideal for caching dynamic content that changes frequently, such as news articles, social media feeds, or real-time data.
+- Applications with Frequent Updates: Suitable for applications that require users to have access to the latest information.
+- API Requests: Appropriate for caching API responses, ensuring users receive the most current data.
+
+<Callout type="info">
+
+Key Considerations:
+
+- Network Reliability: Consider the network reliability of your target audience when deciding whether to use this strategy.
+- Cache Invalidation: Implement cache invalidation strategies to ensure the cache is updated when new data is available.
+- Error Handling: Implement robust error handling to gracefully handle network failures and cache errors.
+- Performance Optimization: Optimize network requests to minimize latency and improve load times.
+- Data Freshness: If data freshness is critical, consider using the "Stale-While-Revalidate" strategy in conjunction with Network-First.
+
+</Callout>
+
+### Stale-While-Revalidate
+
+Stale-While-Revalidate (SWR) prioritizes speed by immediately serving cached content (even if it's potentially stale). Simultaneously, it makes a network request in the background to fetch the latest version of the resource. Once the network response is received, the cache is updated, and subsequent requests will serve the fresh content.
+
+**How it Works:**
+
+- Intercept Network Request: The service worker's fetch event listener intercepts all network requests.
+- Check the Cache: The service worker uses `caches.match()` to check if the requested resource exists in the cache.
+- Serve Stale Cache Immediately (If Found): If a cached response is found, the service worker returns it to the browser immediately.
+- Fetch from Network in the Background: Regardless of whether the cache was hit or not, the service worker initiates a `fetch()` request to the network to get the latest version of the resource.
+- Update the Cache (If Network Response is Successful): If the network request is successful, the service worker updates the cache with the new response using `caches.put()`.
+- Future Requests Serve Fresh Content: Subsequent requests for the same resource will now serve the updated content from the cache.
+
+```js filename="sw.js"
+self.addEventListener("fetch", (event) => {
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      // Fetch from network in the background
+      const networkFetch = fetch(event.request).then((networkResponse) => {
+        caches.open("my-cache").then((cache) => {
+          cache.put(event.request, networkResponse.clone());
+        });
+        return networkResponse;
+      });
+
+      // Serve cached response if found, otherwise serve network fetch.
+      return cachedResponse || networkFetch;
+    })
+  );
+});
+```
+
+**Advantages:**
+
+- Fast Load Times: Provides extremely fast load times by serving cached content immediately.
+- Data Freshness: Ensures that users eventually receive the latest version of the resource.
+- Improved User Experience: Offers a smooth and responsive user experience by minimizing perceived latency.
+
+**Disadvantages:**
+
+- Serving Stale Data: May serve stale data for a short period until the network response is received and the cache is updated.
+- Increased Network Requests: Makes network requests even when cached content is available, which can increase bandwidth usage.
+- Cache Invalidation Complexity: Can require careful cache invalidation strategies to prevent serving excessively stale data.
+
+**When to Use Stale-While-Revalidate:**
+
+- Frequently Updated Content: Ideal for content that changes frequently but doesn't require absolute real-time updates (e.g., news articles, social media feeds, product listings).
+- Resources with Tolerable Stale Data: Suitable for resources where a slight delay in receiving the latest version is acceptable.
+- APIs with Caching Headers: Works well with APIs that provide appropriate caching headers (e.g., Cache-Control: stale-while-revalidate).
+
+<Callout type="info">
+
+Key Considerations:
+
+- Cache-Control Headers: Pay attention to the Cache-Control headers provided by the server, as they can influence the effectiveness of SWR.
+- Background Updates: Ensure that background network requests are handled efficiently to minimize performance impact.
+- Cache Invalidation: Implement appropriate cache invalidation strategies to prevent serving excessively stale data.
+- Network Reliability: Consider the network reliability of your target audience, as frequent network requests can impact performance in areas with poor connectivity.
+- User Experience: Carefully consider the user experience and the trade-offs between speed and freshness.
+
+</Callout>
+
+### Cache-Only
+
+With Cache-Only, the service worker checks the cache for the requested resource. If the resource is found, it's served. If the resource is not found in the cache, the service worker typically returns an error response, indicating that the resource is unavailable.
+
+**How it Works:**
+
+- Intercept Network Request: The service worker's fetch event listener intercepts all network requests.
+- Check the Cache: The service worker uses `caches.match()` to check if the requested resource exists in the cache.
+- Serve from Cache (If Found): If `caches.match()` returns a matching response, the service worker returns the cached response to the browser.
+- Return Error (If Not Found): If `caches.match()` returns undefined (no match), the service worker returns an error response (e.g., a 503 Service Unavailable or a custom offline page).
+
+```js filename="sw.js"
+self.addEventListener("fetch", (event) => {
+  event.respondWith(
+    caches.match(event.request).then((response) => {
+      if (response) {
+        return response; // Serve from cache
+      }
+      // Resource not in cache
+      return new Response("Resource not found in cache", {
+        status: 503,
+        statusText: "Service Unavailable",
+      });
+    })
+  );
+});
+```
+
+**Advantages:**
+
+- Extremely Fast Load Times: Provides the fastest possible load times, as resources are served directly from the cache.
+- Complete Offline Functionality: Ensures that the PWA works entirely offline, relying solely on cached resources.
+- Predictable Behavior: Offers predictable behavior, as the PWA's functionality is determined by the cached resources.
+
+**Disadvantages:**
+
+- No Network Updates: Cannot serve updated content from the network, meaning the PWA will only display the cached version.
+- Limited Functionality: Restricts the PWA's functionality to the resources that are available in the cache.
+- Requires Careful Pre-Caching: Demands careful pre-caching of all necessary resources during installation or other appropriate times.
+
+**When to Use Cache-Only:**
+
+- Static Assets During Offline Use: Ideal for serving static assets (HTML, CSS, JavaScript, images) when the user is offline.
+- Pre-Cached Offline Content: Suitable for applications that provide a specific set of offline content that is pre-cached during installation.
+- Controlled Offline Environments: Useful in controlled environments where network connectivity is intentionally restricted.
+
+<Callout type="info">
+
+Key Considerations:
+
+- Pre-Caching Strategy: Implement a robust pre-caching strategy to ensure that all necessary resources are available in the cache.
+- Error Handling: Provide clear and informative error messages when resources are not found in the cache.
+- Cache Management: Carefully manage the cache to prevent it from growing too large and to remove outdated resources.
+- User Expectations: Ensure that users understand the limitations of the Cache-Only strategy and that they know the PWA will only work with cached content.
+- Service Worker Updates: When service worker updates occur, make sure the new service worker caches the correct and updated assets.
+
+</Callout>
+
+### Network-Only
+
+Network-Only completely bypasses the cache. The service worker always fetches resources directly from the network, regardless of whether they are already in the cache. If the network is unavailable, the request will fail.
+
+**How it Works (Service Worker Implementation):**
+
+- Intercept Network Request: The service worker's fetch event listener intercepts all network requests.
+- Fetch from Network: The service worker uses the fetch() API to make a network request for the resource.
+- Serve Network Response (If Successful): If the network request is successful, the service worker returns the network response to the browser.
+- Return Network Failure (If Network Fails): If the network request fails (e.g., due to network unavailability), the service worker returns a network failure response (e.g., a network error or a custom offline error).
+
+```js filename="sw.js"
+self.addEventListener("fetch", (event) => {
+  event.respondWith(fetch(event.request));
+});
+```
+
+**Advantages:**
+
+- Always Up-to-Date Content: Ensures that users always receive the latest version of resources from the network.
+- Simplicity: Very simple to implement, as it requires minimal service worker code.
+
+**Disadvantages:**
+
+- Complete Network Dependency: The PWA will not function at all without a network connection.
+- Slower Load Times: Load times can be slower compared to caching strategies, as resources are always fetched from the network.
+- Poor User Experience in Unreliable Networks: Provides a poor user experience in areas with unreliable network connectivity.
+
+**When to Use Network-Only:**
+
+- Real-Time Data: Ideal for applications that require absolutely real-time data, such as live streaming or online multiplayer games.
+- Critical Data: Suitable for applications where data integrity is paramount, and serving stale data is unacceptable.
+- Development and Debugging: Useful during development and debugging to ensure that the PWA is always fetching the latest resources from the server.
+- Very specific back end requirements: There may be back end systems that cannot handle the caching of specific data.
+
+<Callout type="info">
+
+**Key Considerations:**
+
+- Network Reliability: Consider the network reliability of your target audience.
+- User Experience: Carefully consider the user experience in areas with poor network connectivity.
+- Error Handling: Implement robust error handling to gracefully handle network failures.
+- Fallback Strategies: Consider implementing fallback strategies (e.g., displaying an offline message or a simplified version of the application) when the network is unavailable
+
+</Callout>
+
+### Custom Approach
+
+**How it works**
+
+- Intercept Network Request: The service worker's fetch event listener intercepts all network requests.
+- Determine Resource Type or Condition: The service worker examines the request URL, headers, or other relevant information to determine the resource type or specific condition.
+- Apply Appropriate Caching Strategy: Based on the resource type or condition, the service worker applies the appropriate caching strategy:
+- Static Assets: Use Cache-First or Cache-Only.
+- Dynamic Content: Use Network-First or Stale-While-Revalidate.
+- API Requests: Use Network-First or a custom strategy based on API response headers.
+- Specific URLs: Use a specific strategy for certain URLs.
+- Implement Custom Logic: The service worker can also implement custom logic, such as:
+- Caching based on user preferences.
+- Caching based on network conditions.
+- Invalidating the cache based on specific events.
+- Serve Response: The service worker serves the response based on the applied caching strategy.
+
+```js filename="sw.js"
+self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+
+  if (url.pathname.startsWith("/api/")) {
+    // API requests: Network-First
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          caches.open("api-cache").then((cache) => {
+            cache.put(event.request, networkResponse.clone());
+          });
+          return networkResponse;
+        })
+        .catch(() => {
+          return caches.match(event.request);
+        })
+    );
+  } else if (url.pathname.endsWith(".css") || url.pathname.endsWith(".js")) {
+    // Static assets: Cache-First
+    event.respondWith(
+      caches.match(event.request).then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        return fetch(event.request).then((networkResponse) => {
+          caches.open("static-cache").then((cache) => {
+            cache.put(event.request, networkResponse.clone());
+          });
+          return networkResponse;
+        });
+      })
+    );
+  } else {
+    // Default: Network-Only
+    event.respondWith(fetch(event.request));
+  }
+});
+```
+
+**Advantages:**
+
+- Maximum Flexibility: Allows for fine-grained control over caching behavior.
+- Optimized Performance: Enables optimization of performance for different types of resources.
+- Improved User Experience: Provides a tailored user experience based on specific requirements.
+
+**Disadvantages:**
+
+- Increased Complexity: Requires more complex service worker code.
+- Maintenance Overhead: Can be more challenging to maintain and debug.
+- Requires Thorough Testing: Demands thorough testing to ensure that all caching strategies are working as expected.
+
+**When to Use a Custom Strategy:**
+
+- Complex Applications: Ideal for complex applications with diverse resource types and caching requirements.
+- Performance-Critical Applications: Suitable for applications where performance optimization is crucial.
+- Applications with Specific Requirements: Useful for applications with specific caching requirements, such as user-specific caching or network-dependent caching.
+
+<Callout type="info">
+
+**Key Considerations:**
+
+- Resource Characteristics: Carefully analyze the characteristics of different resources to determine the appropriate caching strategies.
+- Performance Goals: Define clear performance goals and optimize caching behavior accordingly.
+- Testing and Debugging: Implement thorough testing and debugging procedures to ensure that the custom strategy is working correctly.
+- Maintainability: Design the service worker code for maintainability and scalability.
+
+</Callout>
+
+Caching strategies are key to fast, reliable PWAs, ensuring seamless performance even offline. The right approach—Cache-First for static assets, Network-First for dynamic data, or Stale-While-Revalidate for a balance—depends on your app’s needs. Efficient caching reduces server load, optimizes bandwidth, and enhances user experience. Regular cache management keeps things fresh and efficient, making PWAs feel as smooth as native apps.

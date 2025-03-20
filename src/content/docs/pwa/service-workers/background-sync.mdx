@@ -1,0 +1,179 @@
+---
+title: Background Sync
+description: A guide to mastering modern frontend technologies.
+---
+
+import { Callout } from "nextra/components";
+import Tabs from "nextra/components";
+
+# Background Sync in PWAs
+
+Background Sync is a web API that lets you defer tasks until the user has a stable internet connection, ensuring data transmission and a seamless user experience even when offline. It's particularly useful for Progressive Web Apps (PWAs) that need to work reliably in varying network conditions.
+
+<Callout type="warning">
+Note: Background Sync is not supported in all browsers. While it works well in Chrome and some Chromium-based browsers, Safari and Firefox have limited or no support. For broader compatibility, consider adding fallback mechanisms like manual sync buttons or periodic fetches.
+
+</Callout>
+
+## Features
+
+**With background sync, PWAs can:**
+
+- Defer network requests: Wait for a stable connection to send data, preventing data loss due to interruptions.
+- Ensure data integrity: Guarantee that important data, like form submissions or messages, is eventually delivered to the server.
+- Seamless syncing: Automatically sync with the server once online, providing a smooth and uninterrupted experience.
+
+## How Background Sync works
+
+- Registration: The web app registers a service worker, a script that runs in the background, to handle network requests.
+- Installation: The service worker installs and caches necessary resources for offline use.
+- Activation: The service worker activates and takes control of network requests for the web app.
+- Request deferral: When the app is offline, the service worker stores data locally and defers network requests until the connection is restored.
+- Sync event: When the device comes back online, the browser triggers a "sync" event in the service worker.
+- Data synchronization: The service worker handles the "sync" event, retrieves the stored data, and sends it to the server.
+
+## Benefits
+
+- Better user experience: Ensures important data is sent, even with poor connectivity.
+- Reliable data transfer: Prevents data loss and improves the reliability of web applications.
+- Increased user engagement: Improves user satisfaction and encourages continued app usage.
+- Improved performance: Reduces the impact of network issues on app performance.
+
+## Implementation
+
+### Check for Browser Support
+
+Before you attempt to use Background Sync, it's crucial to verify whether the user's browser supports this feature. This ensures that your application provides a consistent experience and gracefully falls back to alternative solutions if necessary. You perform this check within your main JavaScript file, typically when your application initializes or when you're about to use a feature that relies on background synchronization. The check involves examining the `navigator` object for the presence of both the serviceWorker property and the `SyncManager` interface within the `window` object. The `serviceWorker` property confirms that the browser supports service workers, which are a prerequisite for Background Sync. The `SyncManager` interface, accessed via `window.SyncManager`, specifically indicates support for the Background Sync API itself.
+
+```js filename="main.js"
+if ("serviceWorker" in navigator && "SyncManager" in window) {
+  console.log("Background Sync is supported!");
+  // Proceed with Background Sync implementation
+} else {
+  console.warn("Background Sync is not supported in this browser.");
+  // Provide alternative functionality or inform the user
+}
+```
+
+### Request User Permission
+
+While Background Sync itself doesn't have a specific permission prompt like notifications or geolocation, it's considered a best practice to inform the user and, in some cases, provide controls related to its usage. This is more about transparency and user experience
+
+- **Why it's important:** Background Sync can involve network activity, which might have implications for data usage and battery consumption. Informing the user builds trust and allows them to make informed decisions.
+
+- **How to approach it:**
+  - **Inform the user:** When your application first introduces a feature that uses Background Sync (e.g., "Offline messaging"), explain to the user that the app will attempt to complete the action when a network connection is available.
+  - Provide controls (if applicable): For features with significant background activity, you might offer settings that allow users to:
+    -Enable or disable Background Sync for specific features.
+    -Control the frequency of background syncs.
+- **Regarding snippets** for "asking permission" Since there is no specific permission prompt for Background Sync, the snippets would be more about UI elements and logic to inform the user and provide controls. Here's a conceptual example:
+
+<Callout type="info">
+
+While the following code is not strictly required for a PWA, implementing it enhances user engagement and aligns with best practices.
+
+</ Callout>
+
+```js filename="js"
+// Example: Display a message to the user
+function showBackgroundSyncInfo() {
+  const syncInfoElement = document.getElementById("sync-info");
+  if (syncInfoElement) {
+    syncInfoElement.textContent =
+      "Offline changes will be synced when you're back online.";
+  }
+}
+
+// Example: Provide a toggle for Background Sync
+function createBackgroundSyncToggle() {
+  const syncToggle = document.getElementById("sync-toggle");
+  if (syncToggle) {
+    syncToggle.addEventListener("change", (event) => {
+      if (event.target.checked) {
+        localStorage.setItem("backgroundSyncEnabled", "true");
+      } else {
+        localStorage.setItem("backgroundSyncEnabled", "false");
+      }
+    });
+    // Initialize toggle state from localStorage
+    syncToggle.checked =
+      localStorage.getItem("backgroundSyncEnabled") === "true";
+  }
+}
+
+// Call these functions when your app loads or when relevant features are introduced
+showBackgroundSyncInfo();
+createBackgroundSyncToggle();
+```
+
+### Register a Sync Event
+
+The core of Background Sync functionality resides within your service worker. You need to register a listener that will be triggered by the browser when a sync event occurs. This is done using the `addEventListener` method on the `self` object (which refers to the service worker global scope). You listen for the `sync` event, and within the `event listener`, you'll place the code that handles the background synchronization. It's crucial to use a unique tag for each type of background sync operation you perform. This allows you to differentiate between different sync events and handle them accordingly. The `event.waitUntil()` method is essential here; it informs the browser that the sync operation might take some time and prevents the service worker from being terminated before the operation is complete.
+
+```js filename="main.js"
+self.addEventListener("sync", (event) => {
+  if (event.tag === "my-unique-sync-tag") {
+    event.waitUntil(
+      // Perform the background sync operation here
+      syncDataWithServer()
+        .then(() => {
+          console.log("Background sync completed successfully!");
+        })
+        .catch((error) => {
+          console.error("Background sync failed:", error);
+          // Handle the error appropriately
+        })
+    );
+  }
+});
+```
+
+### Handle the Sync Event
+
+Inside the sync event listener, you'll implement the logic that performs the actual background synchronization. This typically involves retrieving data that was stored locally while the user was offline and then sending it to your server. You might use any client-side storage mechanisms to persist the data. It's essential to handle potential errors gracefully within this section. Network requests can still fail even when the sync event is triggered, so you should include robust error handling to retry requests or notify the user if necessary. After successfully synchronizing the data, you might want to update your local storage or cache to reflect the changes
+
+```js filename="main.js"
+async function sendQueuedDataToServer() {
+  const messages = JSON.parse(localStorage.getItem("offlineMessages")) || [];
+
+  if (messages.length > 0) {
+    try {
+      const response = await fetch("/api/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ messages: messages }),
+      });
+
+      if (response.ok) {
+        // Messages sent successfully, clear localStorage
+        localStorage.removeItem("offlineMessages");
+        console.log("Messages synced successfully!");
+      } else {
+        throw new Error("Server responded with an error: " + response.status);
+      }
+    } catch (error) {
+      // Network error or server error, handle it
+      console.error("Error sending messages:", error);
+      throw error; // Re-throw the error to keep the sync event alive if needed
+    }
+  } else {
+    console.log("No messages to sync.");
+  }
+}
+```
+
+## Use cases
+
+- Messaging apps: Sending messages even when offline.
+- Social media updates: Posting updates or uploading photos while offline.
+- Form submissions: Ensuring forms are submitted even with intermittent connectivity.
+- Data synchronization: Syncing data with a server in the background, ideal for note-taking or to-do list apps.
+- E-commerce transactions: Completing purchases reliably, even with network fluctuations.
+
+## Key considerations
+
+- User privacy: Be transparent with users about how background sync is used and respect their privacy.
+- Battery usage: Minimize battery consumption by optimizing background sync operations.
+- Error handling: Implement robust error handling to manage network failures gracefully.

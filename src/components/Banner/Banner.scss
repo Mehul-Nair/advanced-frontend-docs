@@ -1,0 +1,183 @@
+.banner {
+    position: relative;
+    overflow: hidden;
+    padding: 80px 20px;
+}
+
+.banner-gradient {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #333 0%, #666 100%);
+    opacity: 0.05;
+    animation: gradient 15s ease infinite;
+}
+
+.banner-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    position: relative;
+    z-index: 1;
+}
+
+.banner-content {
+    display: flex;
+    align-items: center;
+    gap: 48px;
+}
+
+@media (max-width: 1024px) {
+    .banner-content {
+        flex-direction: column;
+        text-align: center;
+    }
+}
+
+.banner-text {
+    flex: 1;
+}
+
+.banner-title {
+    font-size: 48px;
+    font-weight: bold;
+    margin-bottom: 24px;
+    line-height: 1.2;
+}
+
+.banner-tech {
+    height: 32px;
+    margin-bottom: 24px;
+    color: var(--accent);
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.banner-description {
+    font-size: 20px;
+    color: var(--accent);
+    margin-bottom: 32px;
+    max-width: 600px;
+}
+
+.banner-buttons {
+    display: flex;
+    gap: 16px;
+}
+
+@media (max-width: 640px) {
+    .banner-buttons {
+        flex-direction: column;
+    }
+}
+
+.button {
+    display: inline-flex;
+    align-items: center;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.button-primary {
+    background-color: var(--text);
+    color: var(--background);
+    border: none;
+}
+
+.button-primary:hover {
+    background-color: var(--hover);
+}
+
+.button-secondary {
+    background-color: var(--background);
+    color: var(--text);
+    border: 2px solid var(--text);
+}
+
+.button-secondary:hover {
+    background-color: var(--text);
+    color: var(--background);
+}
+
+.button svg {
+    margin-right: 8px;
+}
+
+.banner-image {
+    flex: 1;
+    position: relative;
+}
+
+.image-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+    max-width: 500px;
+    margin: 0 auto;
+}
+
+.banner-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+.floating-element {
+    position: absolute;
+    border-radius: 8px;
+    background-color: #f5f5f5;
+}
+
+.float-1 {
+    width: 80px;
+    height: 80px;
+    top: -16px;
+    right: -16px;
+    animation: float 3s ease-in-out infinite;
+}
+
+.float-2 {
+    width: 64px;
+    height: 64px;
+    bottom: -16px;
+    left: -16px;
+    border-radius: 50%;
+    animation: float 3s ease-in-out 1s infinite;
+}
+
+.float-3 {
+    width: 48px;
+    height: 48px;
+    top: 50%;
+    right: -32px;
+    animation: float 4s ease-in-out 2s infinite;
+}
+
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+@keyframes gradient {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}

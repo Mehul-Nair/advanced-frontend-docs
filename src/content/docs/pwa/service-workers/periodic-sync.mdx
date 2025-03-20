@@ -1,0 +1,170 @@
+---
+title: Periodic Sync
+description: A guide to mastering modern frontend technologies.
+---
+
+# What is Periodic Background Sync?
+
+Periodic Background Sync allows your PWA's service worker to wake up at intervals and perform background tasks, even when the user isn't actively using the app.
+This is ideal for:
+
+- Content Updates: Refreshing news feeds, weather data, or other regularly changing content.
+- Data Synchronization: Syncing data with a server periodically.
+- Prefetching Resources: Fetching resources in the background to improve performance.
+
+**Key Differences from Regular Background Sync**
+
+- Regular background sync is triggered when network connectivity is regained after a user-initiated action.
+- Periodic background sync is triggered at intervals determined by the browser, based on various factors.
+
+## How Periodic Sync works
+
+- Permission Request: You must request the periodic-background-sync permission from the user.
+- Registration: The PWA registers a periodic sync event with a unique tag and a minimum interval.
+- Service Worker Activation: The browser periodically wakes up the service worker.
+- Event Trigger: The service worker receives a periodicsync event with the registered tag.
+- Action Execution: The service worker executes the deferred actions.
+
+## Implementation
+
+Imagine a JavaScript app that fetches and displays products from an API. In a scenario where the app goes offline, instead of showing empty pages, we can cache the product data and retrieve it when needed. To keep the cached data as up-to-date as possible, we can use Periodic Sync to periodically fetch and store the latest products in the background. This ensures that even in offline mode, users see the most recent available data rather than an outdated or empty page.
+
+### Check for Browser Support:
+
+Before you attempt to use Periodic Sync, it’s crucial to verify whether the user’s browser supports this feature. This ensures that your application provides a consistent experience and gracefully falls back to alternative solutions if necessary. You perform this check within your main JavaScript file, typically when your application initializes or when you’re about to use a feature that relies on Periodic Background synchronization. The check involves examining the `navigator` object for the presence of both the `serviceWorker` property and the `PeriodicSyncManager` interface within the window object. The `serviceWorker` property confirms that the browser supports service workers, which are a prerequisite for Periodic Sync. The `PeriodicSyncManager` interface, accessed via `window.PeriodicSyncManager`, specifically indicates support for the Periodic Sync API itself.
+
+```js filename="main.js"
+if ("serviceWorker" in navigator && "PeriodicSyncManager" in window) {
+  console.log("Periodic Sync is supported!");
+  // Proceed with Periodic Sync implementation
+} else {
+  console.warn("Periodic Sync is not supported in this browser.");
+  // Provide alternative functionality or inform the user
+}
+```
+
+### Request User Permission:
+
+You must request the periodic-background-sync permission from the user. Before your PWA can perform periodic background sync, it needs explicit permission from the user. This is a security measure to prevent excessive battery and data usage.
+
+```js filename="js"
+async function requestPeriodicSyncPermission() {
+  if ("PeriodicSyncManager" in window && "serviceWorker" in navigator) {
+    const status = await navigator.permissions.query({
+      name: "periodic-background-sync",
+    });
+
+    if (status.state === "granted") {
+      return true; // Permission already granted
+    } else if (status.state === "prompt") {
+      const result = await navigator.permissions.request({
+        name: "periodic-background-sync",
+      });
+      return result.state === "granted"; // Return true if granted, false if denied.
+    } else {
+      return false; // Permission denied
+    }
+  }
+  return false; // Periodic sync not supported
+}
+
+// Example usage
+requestPeriodicSyncPermission().then((granted) => {
+  if (granted) {
+    console.log("Periodic sync permission granted");
+    //Continue with registration
+  } else {
+    console.log("Periodic sync permission denied");
+  }
+});
+```
+
+Key Points:
+
+- navigator.permissions.query() checks the current permission status.
+- navigator.permissions.request() prompts the user for permission.
+- Always handle the prompt state to request permission if it hasn't been granted yet.
+
+### Create Registration Function
+
+The PWA registers a periodic sync event with a unique tag and a minimum interval.Once you have permission, you can register a periodic sync event. The tag is a unique identifier, and the minInterval specifies the minimum time (in milliseconds) between syncs.
+
+Once you have permission, you can register a periodic sync event. The tag is a unique identifier, and the minInterval specifies the minimum time (in milliseconds) between syncs.
+
+```js filename="sw.js"
+async function registerPeriodicSync(tag, minInterval) {
+  if ("PeriodicSyncManager" in window && "serviceWorker" in navigator) {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      await registration.periodicSync.register(tag, {
+        minInterval: minInterval,
+      });
+      console.log(`Periodic sync registered: ${tag}`);
+    } catch (error) {
+      console.error("Periodic sync registration failed:", error);
+    }
+  }
+}
+
+// Example usage
+registerPeriodicSync("update-data", 24 * 60 * 60 * 1000); // 24 hours
+```
+
+### Register a Sync Event
+
+The core of Periodic Sync functionality resides within your service worker. You need to register a listener that will be triggered by the browser when a sync event occurs. This is done using the addEventListener method on the self object (which refers to the service worker global scope). You listen for the sync event, and within the event listener, you’ll place the code that handles the background synchronization. It’s crucial to use a unique tag for each type of background sync operation you perform. This allows you to differentiate between different sync events and handle them accordingly. The event.waitUntil() method is essential here; it informs the browser that the sync operation might take some time and prevents the service worker from being terminated before the operation is complete.
+
+```js filename="sw.js"
+const SYNC_TAG = "update-data";
+
+self.addEventListener("periodicsync", (event) => {
+  if (event.tag === SYNC_TAG) {
+    event.waitUntil(
+      // Perform the background sync operation here
+      fetchAndCacheProducts()
+        .then(() => {
+          console.log("Background sync completed successfully!");
+        })
+        .catch((error) => {
+          console.error("Background sync failed:", error);
+          // Handle the error appropriately
+        })
+    );
+  }
+});
+```
+
+### Handle the Sync Event
+
+Inside the sync event listener, you’ll implement the logic that performs the actual periodic synchronization. For our case it should be retrieving new products from the api and caching the products for future use. You might use any client-side storage mechanisms to persist the data. It’s essential to handle potential errors gracefully within this section. Network requests can still fail even when the sync event is triggered, so you should include robust error handling to retry requests or notify the user if necessary. After successfully synchronizing the data, you might want to update your local storage or cache to reflect the products
+
+```js filename="sw.js"
+async function fetchAndCacheProducts() {
+  try {
+    const response = await fetch(API_URL);
+    if (response.status === 200) {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.put(API_URL, response.clone());
+      console.log("Products updated in cache in background...");
+    } else {
+      console.error("Failed to update products:", response.status);
+    }
+  } catch (error) {
+    console.error("Failed to update products:", error);
+  }
+}
+```
+
+## Use cases
+
+- Messaging apps: Sending messages even when offline.
+- Social media updates: Posting updates or uploading photos while offline.
+- Form submissions: Ensuring forms are submitted even with intermittent connectivity.
+- Data synchronization: Syncing data with a server in the background, ideal for note-taking or to-do list apps.
+- E-commerce transactions: Completing purchases reliably, even with network fluctuations.
+
+## Key considerations
+
+- User privacy: Be transparent with users about how background sync is used and respect their privacy.
+- Battery usage: Minimize battery consumption by optimizing background sync operations.
+- Error handling: Implement robust error handling to manage network failures gracefully.

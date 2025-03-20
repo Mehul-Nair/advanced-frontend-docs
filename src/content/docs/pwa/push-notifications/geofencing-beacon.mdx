@@ -1,0 +1,39 @@
+---
+title: Understanding Push Notifications
+description: A structured approach to push notifications documentation.
+---
+
+# Geofencing and Beacon Integrations
+
+Geofencing is a location-based service that uses GPS, RFID, Wi-Fi, or cellular data to trigger a pre-programmed action when a mobile device enters or exits a virtual 1 perimeter set up around a specific geographic location, known as a geofence. These virtual perimeters can range in size from a small radius around a store to a large area like a city or neighborhood. The core concept revolves around monitoring a device's location in real-time and comparing it to these defined boundaries. When a device's location crosses a geofence, a pre-defined action, such as sending a push notification, is initiated.
+
+Geofencing relies on the device's location services being enabled and the app having the necessary permissions to access this data. The accuracy of geofencing can vary depending on the technology used and environmental factors, such as signal strength and obstructions. Modern geofencing solutions often incorporate features like dwell time (how long a device stays within a geofence) and multiple geofence management to provide more nuanced and targeted triggers
+
+**Code Example: Basic Geofencing in a PWA**
+
+```js filename="main.js"
+async function requestLocationPermission() {
+  if (!navigator.geolocation) {
+    console.error("Geolocation is not supported by this browser.");
+    return;
+  }
+
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        console.log("Location permission granted.");
+        resolve(position);
+      },
+      (error) => {
+        console.error("Error requesting location:", error.message);
+        reject(error);
+      }
+    );
+  });
+}
+
+// Call the function
+requestLocationPermission()
+  .then(() => console.log("User granted location access"))
+  .catch(() => console.log("User denied location access"));
+```

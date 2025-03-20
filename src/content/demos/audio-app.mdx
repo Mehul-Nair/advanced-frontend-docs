@@ -1,0 +1,398 @@
+# Offline Audio Search
+
+## Project Overview
+
+This project is a **Progressive Web Application (PWA)** that allows users to search and play songs offline using caching and **IndexedDB**. It uses a **Service Worker** to cache static assets and store search results for offline access.
+
+## Folder Structure
+
+```/ (root directory)
+│── index.html         # Main HTML file
+│── styles.css         # CSS file for styling
+│── manifest.json      # Web App Manifest file
+│── app.js             # Main JavaScript file handling UI & logic
+│── sw.js
+
+```
+
+## Files and Code Explanation
+
+### 1. index.html
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Offline Audio Search</title>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="manifest" href="manifest.json" />
+  </head>
+  <body>
+    <h1>Search Songs</h1>
+    <input type="text" id="search" placeholder="Search songs..." />
+    <ul id="results"></ul>
+  </body>
+</html>
+```
+
+#### Explanation:
+
+- This file contains the **HTML structure** of the app.
+- It includes a search input field and a result container (`ul` element).
+- Loads necessary files for functionality.
+
+### 2. manifest.json
+
+```json
+{
+  "name": "Offline Audio Search",
+  "short_name": "Audio Search",
+  "description": "Search and play songs offline with caching and IndexedDB.",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000"
+}
+```
+
+#### Explanation:
+
+- Defines **PWA metadata** for adding the app to a home screen.
+- `start_url`: Specifies where the app starts when opened.
+- `display`: "standalone" makes the app look like a native application.
+- `theme_color` and `background_color`: Set the colors of the app UI.
+
+3. JavaScript Functionality (app.js)
+
+# Songs Search Application
+
+## Overview
+
+This project allows users to search for songs online and caches the results using IndexedDB for offline access. It also includes a countdown timer to refresh cached data periodically.
+
+## Features
+
+- Search songs via an API
+- Cache search results for offline use
+- Display cached results when offline
+- Auto-refresh cached data every 30 seconds
+- Service worker support for better offline handling
+
+## Code Explanation
+
+### 1. Initializing the Application
+
+```javascript
+document.addEventListener("DOMContentLoaded", () => {
+    const searchInput = document.getElementById("search");
+    const resultsContainer = document.getElementById("results");
+
+    // Status Indicator
+    const statusIndicator = document.createElement("div");
+    statusIndicator.id = "status-indicator";
+    document.body.insertBefore(statusIndicator, searchInput);
+
+    function updateStatusIndicator() {
+        if (navigator.onLine) {
+            statusIndicator.innerHTML = "<span style='color: green;'>✅ You are online. Data will be fetched from API and stored in cache.</span>";
+        } else {
+            statusIndicator.innerHTML = "<span style='color: red;'>⚠️ You are offline. Data will be fetched from cache.</span>";
+        }
+    }
+
+    window.addEventListener("online", updateStatusIndicator);
+    window.addEventListener("offline", updateStatusIndicator);
+    updateStatusIndicator();
+```
+
+**Explanation:**
+
+- The `DOMContentLoaded` event ensures that the script runs after the page has fully loaded.
+- A status indicator is created to inform users if they are online or offline.
+- The `updateStatusIndicator` function updates the status message based on the user's internet connection.
+- Event listeners detect changes in online/offline status and update the indicator accordingly.
+
+### 2. Handling Search Input
+
+```javascript
+searchInput.addEventListener("input", async () => {
+  let query = searchInput.value.trim().toLowerCase(); // Convert query to lowercase
+  if (query.length === 0) {
+    resultsContainer.innerHTML = "";
+    return;
+  }
+
+  if (navigator.onLine) {
+    fetchAndStoreSongs(query);
+  } else {
+    getFromDB(query);
+  }
+});
+```
+
+**Explanation:**
+
+- Listens for user input in the search bar.
+- Converts the search query to lowercase for consistency.
+- If the search query is empty, clears the results.
+- If online, fetches data from the API; otherwise, retrieves cached data from IndexedDB.
+
+### 3. Fetching Songs from API and Storing in Cache
+
+```javascript
+async function fetchAndStoreSongs(query) {
+  try {
+    const response = await fetch(
+      `https://nick-git-main-nikhils-projects-54f54630.vercel.app/api/search-songs?title=${query}`
+    );
+    const data = await response.json();
+
+    if (data.success && data.data.length > 0) {
+      displaySongs(data.data);
+      storeInDB(query, data.data);
+    } else {
+      resultsContainer.innerHTML = "<p>No songs found.</p>";
+    }
+  } catch (error) {
+    console.error("Error fetching songs:", error);
+    getFromDB(query);
+  }
+}
+```
+
+**Explanation:**
+
+- Fetches song data from the API.
+- If the API returns valid results, displays the songs and stores them in IndexedDB.
+- If an error occurs, attempts to retrieve data from the cache.
+
+### 4. Displaying Songs
+
+```javascript
+function displaySongs(songs) {
+  resultsContainer.innerHTML = "";
+  songs.forEach((song) => {
+    const songElement = document.createElement("div");
+    songElement.classList.add("song-item");
+    songElement.innerHTML = `
+                <h3>${song.title}</h3>
+                <p>Artist: ${song.artist}</p>
+                <audio controls>
+                    <source src="${song.cloudinary_url}" type="audio/mpeg">
+                    Your browser does not support the audio element.
+                </audio>
+            `;
+    resultsContainer.appendChild(songElement);
+  });
+}
+```
+
+**Explanation:**
+
+- Creates and appends song elements to the results container.
+- Displays the song title, artist, and an audio player for each song.
+
+### 5. Storing and Retrieving Songs in IndexedDB
+
+```javascript
+function storeInDB(query, songs) {
+  const request = indexedDB.open("songsDB", 1);
+  request.onupgradeneeded = (event) => {
+    const db = event.target.result;
+    if (!db.objectStoreNames.contains("songs")) {
+      db.createObjectStore("songs", { keyPath: "query" });
+    }
+  };
+  request.onsuccess = (event) => {
+    const db = event.target.result;
+    const transaction = db.transaction("songs", "readwrite");
+    const store = transaction.objectStore("songs");
+
+    store.put({ query, songs });
+
+    transaction.oncomplete = () =>
+      console.log(`Stored songs for query: ${query}`);
+  };
+  request.onerror = (event) =>
+    console.error("IndexedDB Error:", event.target.error);
+}
+```
+
+**Explanation:**
+
+- Opens IndexedDB and ensures the `songs` object store exists.
+- Stores the search query along with the fetched songs.
+
+```javascript
+function getFromDB(query) {
+  const request = indexedDB.open("songsDB", 1);
+  request.onsuccess = (event) => {
+    const db = event.target.result;
+    const transaction = db.transaction("songs", "readonly");
+    const store = transaction.objectStore("songs");
+    const getRequest = store.get(query);
+    getRequest.onsuccess = () => {
+      if (getRequest.result) {
+        displaySongs(getRequest.result.songs);
+      } else {
+        resultsContainer.innerHTML = "<p>No cached songs available.</p>";
+      }
+    };
+  };
+  request.onerror = (event) =>
+    console.error("IndexedDB Error:", event.target.error);
+}
+```
+
+**Explanation:**
+
+- Retrieves cached songs from IndexedDB based on the search query.
+- Displays the results if found, otherwise notifies the user that no cached data is available.
+
+### 6. Countdown Timer for Refreshing Cached Data
+
+```javascript
+// Countdown Timer UI
+const timerElement = document.createElement("div");
+timerElement.id = "timer";
+document.body.appendChild(timerElement);
+
+function refreshCachedData() {
+  console.log("Timer executed: Checking for cached data update");
+
+  const request = indexedDB.open("songsDB", 1);
+  request.onsuccess = (event) => {
+    const db = event.target.result;
+    const transaction = db.transaction("songs", "readwrite");
+    const store = transaction.objectStore("songs");
+
+    const getAllRequest = store.getAll();
+    getAllRequest.onsuccess = async () => {
+      const cachedSongs = getAllRequest.result;
+
+      if (navigator.onLine && cachedSongs.length > 0) {
+        console.log("User is online, refreshing cached data...");
+
+        for (const entry of cachedSongs) {
+          try {
+            const response = await fetch(
+              `https://nick-git-main-nikhils-projects-54f54630.vercel.app/api/search-songs?title=${entry.query}`
+            );
+            const data = await response.json();
+
+            if (data.success && data.data.length > 0) {
+              console.log(`Updating cache for query: ${entry.query}`);
+
+              const updateTransaction = db.transaction("songs", "readwrite");
+              const updateStore = updateTransaction.objectStore("songs");
+
+              updateStore.delete(entry.query);
+              updateStore.put({ query: entry.query, songs: data.data });
+
+              updateTransaction.oncomplete = () =>
+                console.log(`Cache updated successfully for "${entry.query}"`);
+            }
+          } catch (error) {
+            console.error(
+              `Error updating cache for query "${entry.query}":`,
+              error
+            );
+          }
+        }
+      } else {
+        console.log("No cached data found or user is offline.");
+      }
+    };
+    getAllRequest.onerror = (event) =>
+      console.error("IndexedDB Error:", event.target.error);
+  };
+}
+
+let countdown = 30;
+setInterval(() => {
+  countdown--;
+  timerElement.textContent = `Next refresh in: ${countdown} sec`;
+  if (countdown === 0) {
+    refreshCachedData();
+    countdown = 30; // Reset countdown
+  }
+}, 1000);
+```
+
+**Explanation:**
+
+- Displays a countdown timer that triggers data refresh every 30 seconds.
+
+### 7. Registering Service Worker
+
+```javascript
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker
+    .register("sw.js")
+    .then(() => {
+      console.log("Service Worker Registered");
+    })
+    .catch((error) => {
+      console.error("Service Worker Registration Failed:", error);
+    });
+}
+```
+
+### Service Worker (`sw.js`)
+
+The `sw.js` file is responsible for caching static assets and handling network requests to ensure the app can function offline. Below is an explanation of its key components:
+
+1. **Cache Name & Static Assets**
+
+   ```js
+   const CACHE_NAME = "song-app-cache-v1";
+   const STATIC_ASSETS = ["./", "index.html", "app.js", "styles.css"];
+   ```
+
+   - This defines the cache name and the list of static files (HTML, CSS, and JavaScript) to be cached.
+
+2. **Install Event (Caching Static Files)**
+
+   ```js
+   self.addEventListener("install", (event) => {
+     event.waitUntil(
+       caches.open(CACHE_NAME).then((cache) => {
+         return cache.addAll(STATIC_ASSETS);
+       })
+     );
+   });
+   ```
+
+   - When the service worker is installed, it opens the cache and stores the defined static assets.
+
+3. **Activate Event (Clearing Old Caches)**
+
+   ```js
+   self.addEventListener("activate", (event) => {
+     event.waitUntil(
+       caches.keys().then((keys) => {
+         return Promise.all(
+           keys
+             .filter((key) => key !== CACHE_NAME)
+             .map((key) => caches.delete(key))
+         );
+       })
+     );
+   });
+   ```
+
+   - When a new service worker is activated, it removes old cache versions to free up space.
+
+4. **Fetch Event (Serving Cached Files When Offline)**
+   ```js
+   self.addEventListener("fetch", (event) => {
+     event.respondWith(
+       fetch(event.request).catch(() => caches.match(event.request))
+     );
+   });
+   ```
+   - If a network request fails (e.g., due to no internet), it serves the requested file from the cache.
+
+---

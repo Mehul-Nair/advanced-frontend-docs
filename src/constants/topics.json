@@ -1,0 +1,310 @@
+[
+    {
+        "topic": "Progressive Web Apps (PWAs)",
+        "children": [
+            {
+                "topic": "Service Workers",
+                "children": [
+                    {
+                        "topic": "Caching Strategies"
+                    },
+                    {
+                        "topic": "Background Sync"
+                    },
+                    {
+                        "topic": "Independent Service Workers"
+                    },
+                    {
+                        "topic": "Periodic Sync"
+                    }
+                ]
+            },
+            {
+                "topic": "Push Notifications & Background Tasks",
+                "children": [
+                    {
+                        "topic": "Possible Geofencing and Beacon Integrations"
+                    },
+                    {
+                        "topic": "Push APIs"
+                    },
+                    {
+                        "topic": "Background Fetch"
+                    }
+                ]
+            },
+            {
+                "topic": "Advanced Caching Techniques",
+                "children": [
+                    {
+                        "topic": "IndexedDB and Cache Storage API"
+                    },
+                    {
+                        "topic": "Dynamic Data Caching"
+                    },
+                    {
+                        "topic": "Expiration and Cache Management"
+                    }
+                ]
+            },
+            {
+                "topic": "Offline-First Architecture",
+                "children": [
+                    {
+                        "topic": "Enabling AEM Website as PWA"
+                    },
+                    {
+                        "topic": "Offline-First UI Design"
+                    },
+                    {
+                        "topic": "Offline Data Synchronization"
+                    }
+                ]
+            },
+            {
+                "topic": "Rendering and SEO",
+                "children": [
+                    {
+                        "topic": "Server Side Rendering (SSR)"
+                    },
+                    {
+                        "topic": "Pre Render (SSG)"
+                    },
+                    {
+                        "topic": "SEO (discoverability) & GEO"
+                    }
+                ]
+            },
+            {
+                "topic": "Advanced Performance Optimization",
+                "children": [
+                    {
+                        "topic": "Lazy Loading"
+                    },
+                    {
+                        "topic": "Code Splitting"
+                    },
+                    {
+                        "topic": "Resource Prioritization"
+                    }
+                ]
+            },
+            {
+                "topic": "Security",
+                "children": [
+                    {
+                        "topic": "HTTPS Enforcement"
+                    },
+                    {
+                        "topic": "Content Security Policy (CSP)"
+                    },
+                    {
+                        "topic": "Service Worker Hardening"
+                    },
+                    {
+                        "topic": "Data encryption for offline cached/transactional data"
+                    },
+                    {
+                        "topic": "TWA (Trusted Web Activities)"
+                    }
+                ]
+            },
+            {
+                "topic": "Advanced topics",
+                "children": [
+                    {
+                        "topic": "Device Capabilities API"
+                    },
+                    {
+                        "topic": "WebXR API"
+                    },
+                    {
+                        "topic": "Performance Monitoring (Telemetry Data) .e.g https://telemetry-pwa.vercel.app/"
+                    },
+                    {
+                        "topic": "WebAssembly (Wasm) Integration"
+                    },
+                    {
+                        "topic": "CDN Caching"
+                    },
+                    {
+                        "topic": "Edge-based Service Workers"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "topic": "Voice User Interfaces (VUIs)",
+        "children": [
+            {
+                "topic": "Natural Language Processing (NLP)"
+            },
+            {
+                "topic": "Automatic Speech Recognition (ASR)"
+            },
+            {
+                "topic": "Text-to-Speech (TTS)"
+            },
+            {
+                "topic": "Intent Recognition"
+            },
+            {
+                "topic": "Dialogue Management"
+            },
+            {
+                "topic": "Wake Word Detection"
+            },
+            {
+                "topic": "Context Awareness"
+            },
+            {
+                "topic": "Error Handling & Feedback"
+            },
+            {
+                "topic": "Platforms",
+                "children": [
+                    {
+                        "topic": "Google Dialogflow CX/ES"
+                    },
+                    {
+                        "topic": "Amazon Lex"
+                    },
+                    {
+                        "topic": "Microsoft Azure Bot Service"
+                    },
+                    {
+                        "topic": "Rasa Open Source"
+                    },
+                    {
+                        "topic": "Wit.ai (Facebook)"
+                    },
+                    {
+                        "topic": "Snips (Sonos)"
+                    },
+                    {
+                        "topic": "Mycroft AI"
+                    },
+                    {
+                        "topic": "OpenAI Whisper"
+                    }
+                ]
+            },
+            {
+                "topic": "Working Demo"
+            }
+        ]
+    },
+    {
+        "topic": "WebAssembly (Wasm)",
+        "children": [
+            {
+                "topic": "Fundamentals"
+            },
+            {
+                "topic": "Wasm Compilation Workflow"
+            },
+            {
+                "topic": "Wasm File Structure"
+            },
+            {
+                "topic": "WebAssembly System Interface"
+            },
+            {
+                "topic": "AOT & Streaming Compilation"
+            },
+            {
+                "topic": "Memory Management and Threads"
+            },
+            {
+                "topic": "Working Demo"
+            }
+        ]
+    },
+    {
+        "topic": "Animation library",
+        "children": [
+            {
+                "topic": "Core Animation Concepts"
+            },
+            {
+                "topic": "CSS Animations",
+                "children": [
+                    {
+                        "topic": "Keyframe"
+                    },
+                    {
+                        "topic": "Transitions"
+                    },
+                    {
+                        "topic": "Scroll-Driven Animations"
+                    }
+                ]
+            },
+            {
+                "topic": "JavaScript Animations",
+                "children": [
+                    {
+                        "topic": "GSAP"
+                    },
+                    {
+                        "topic": "Anime.js"
+                    },
+                    {
+                        "topic": "Popmotion"
+                    },
+                    {
+                        "topic": "Mo.js"
+                    }
+                ]
+            },
+            {
+                "topic": "Advanced Libraries",
+                "children": [
+                    {
+                        "topic": "Web Animation API"
+                    },
+                    {
+                        "topic": "Canvas API"
+                    },
+                    {
+                        "topic": "WebGL & Three.js"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "topic": "AI Ready Front End Dev",
+        "children": [
+            {
+                "topic": "Tools",
+                "children": [
+                    {
+                        "topic": "Sustainable Dev Practices"
+                    },
+                    {
+                        "topic": "Co-Pilot"
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        "topic": "Micro Frontends",
+        "children": [
+            {
+                "topic": "Route-Based Microfrontends"
+            },
+            {
+                "topic": "Component-Based Microfrontends"
+            },
+            {
+                "topic": "Vertical Split (Domain-Driven Design)"
+            },
+            {
+                "topic": "Layout-Based"
+            }
+        ]
+    }
+]

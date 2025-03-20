@@ -1,0 +1,252 @@
+---
+title: Understanding Service Workers
+description: A guide to mastering modern frontend technologies.
+---
+
+import { Callout } from "nextra/components";
+import Tabs from "nextra/components";
+
+# What are service workers ?
+
+Service Workers are a powerful web technology that allows websites to work offline, improve performance, and enable background tasks. They act as a proxy between the browser and the network, allowing developers to control network requests and cache assets efficiently.
+
+Users expect apps to start reliably on slow or flaky network connections, or even offline. They expect the content they've most recently interacted with, such as media tracks or tickets and itineraries, to be available and usable. When a request isn't possible, they expect the app to tell them instead of silently failing or crashing. And they want all of this to happen quickly. As you can see in Milliseconds make millions, even a 0.1 second improvement in load times can improve conversion by up to 10%. Service workers are the tool that lets your Progressive Web App (PWA) live up to your users' expectations.
+
+When an app requests a resource covered by the service worker's scope, the service worker intercepts the request and acts as a network proxy, even if the user is offline. It can then decide if it should serve the resource from the cache using the Cache Storage API, serve it from the network as if there were no active service worker, or create it from a local algorithm. This lets you provide a high-quality experience like that of a platform app, even when your app is offline.
+
+source -[web.dev](https://web.dev/learn/pwa/service-workers)
+
+<Callout type="info">
+  Not all browsers provide support for service workers. Even in supported
+  browsers, a service worker may not be available on the first page load or
+  while it’s in the activation phase. It's best to consider service workers as
+  an enhancement rather than a requirement for critical functionality.
+</Callout>
+
+## Registering a Service Worker
+
+To start using a service worker, you first need to register it in your JavaScript code. This tells the browser to install and activate the service worker in the background.
+
+you can either install in your `main.js` while or install it directly in `index.html`
+
+```html filename="index.html"
+<script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker
+      .register("/service-worker.js")
+      .then((registration) => {
+        console.log(
+          "Service Worker registered with scope:",
+          registration.scope
+        );
+      })
+      .catch((error) => {
+        console.error("Service Worker registration failed:", error);
+      });
+  }
+</script>
+```
+
+**Explanation for the above code:**
+
+- Feature Detection: if ('serviceWorker' in navigator) checks if the browser supports service workers.
+- Registering the Service Worker: navigator.serviceWorker.register() loads the script (/service-worker.js).
+- Success Handling: Logs the scope of the registered service worker.
+- Error Handling: If the registration fails, it logs an error message.
+
+## Verifying Whether a Service Worker is Registered
+
+To verify whether a service worker is registered, use developer tools in your favorite browser.
+
+In Firefox and Chromium-based browsers (Microsoft Edge, Google Chrome, or Samsung Internet):
+
+- Open developer tools, then click the Application tab.
+- In the left pane, select Service Workers.
+- Check that the service worker's script URL appears with the status "Activated". On Firefox, the status can be "Running" or "Stopped".
+
+In Safari:
+
+- Click Develop > Service Workers.
+- Check this menu for an entry with the current origin. Clicking that entry opens an inspector over the service worker's context.
+
+Alternatively you can also check for registration using js
+
+```js filename="main.js"
+navigator.serviceWorker.getRegistrations().then((registrations) => {
+  console.log("Registered Service Workers:", registrations);
+});
+```
+
+## Scope of Service Worker
+
+The location of your service worker file determines what parts of your website or PWA it can control. For example, if your service worker is located at: `example.com/my-pwa/sw.js`
+It can manage and intercept requests for all pages under that path, like:
+
+- example.com/my-pwa/home
+- example.com/my-pwa/demos
+
+However, a service worker cannot control pages outside its scope.
+
+### Key Points About Scope
+
+- A service worker can only manage requests within its assigned path.
+- If multiple browser tabs or PWA windows are open, they share a single service worker for that scope.
+- Each scope can have only one service worker at a time.
+
+Place your service worker in the root of your app (e.g., /sw.js) to ensure it can control all requests related to your PWA.
+
+<Callout type="error" emoji="⚠️">
+  Avoid placing it inside subfolders like `/js/` or loading it from a **CDN**,
+  as this limits its ability to manage requests properly.
+</Callout>
+
+### Setting the Scope of a Service Worker
+
+When registering a service worker, you can define its scope manually to ensure it controls the right parts of your PWA. By default, the service worker's scope is determined by its location, but you can explicitly set it during registration.
+
+```js filename="js"
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker
+    .register("/sw.js", { scope: "/" }) // Root scope
+    .then((registration) => {
+      console.log("Service Worker registered with scope:", registration.scope);
+    })
+    .catch((error) => {
+      console.error("Service Worker registration failed:", error);
+    });
+}
+```
+
+**Explanation:**
+
+- The scope: '/' ensures the service worker controls the entire site.
+- If the service worker was located at /pwa/sw.js, it would only control pages under /pwa/.
+
+Here's an example of limited scope registration:
+
+```js filename="js"
+navigator.serviceWorker.register("/pwa/sw.js", { scope: "/pwa/" });
+```
+
+This means:
+
+The service worker can only control pages under `/pwa/`, like `/pwa/home` or `/pwa/about`.
+It won't affect pages like `/blog/` or `/contact`.
+
+## Service Worker Lifecycle
+
+Service workers have a lifecycle that dictates how they're installed, separately from your PWA installation.
+
+A service worker goes through the following stages:
+
+- **Registration** – The browser registers the service worker.
+- **Installation** – The service worker installs and caches resources.
+- **Activation** – The service worker becomes active and starts intercepting network requests.
+- **Idle & Termination** – The service worker runs when needed and gets terminated when inactive.
+- **Update** – If a new version is available, it installs and replaces the old one.
+
+The service worker lifecycle starts with registering the service worker. The browser then tries to download and parse the service worker file. If parsing succeeds, the service worker's install event is fired. The install event only fires once.
+
+Service worker installation happens silently, without requiring user permission, even if the user doesn't install the PWA. The Service Worker API is available even on platforms that don't support PWA installation, such as Safari and Firefox on desktop devices.
+
+After the installation, the service worker needs to be activated before it can control its clients, including your PWA. When the service worker is ready to control its clients, the activate event fires. However, by default, an activated service worker can't manage the page that registered it until the next time you navigate to that page by reloading the page or reopening the PWA.
+
+You can listen for events in the service worker's global scope using the self object:
+
+```js filename="sw.js"
+self.addEventListener("install", (event) => {
+  console.log("Service worker installed");
+});
+self.addEventListener("activate", (event) => {
+  console.log("Service worker activated");
+});
+```
+
+### Updating a Service Worker
+
+Browsers automatically check for updates to your service worker by comparing the new service worker file with the one currently in use. If there are byte-differences, the browser installs the new service worker but keeps it in a waiting state until all existing clients (open tabs or PWA windows) are closed or navigated away from.
+
+Simply refreshing the page won't activate the new service worker—the user must close all instances of the PWA before the update takes effect.
+
+**Example: Forcing an Immediate Update**
+
+If you want your service worker to take control immediately, you can use `skipWaiting()` and `clients.claim()` within the `install` and activate `events`.
+
+```js filename="sw.js"
+self.addEventListener("install", (event) => {
+  console.log("Service Worker installing...");
+  self.skipWaiting(); // Forces activation even if old service worker is still running
+});
+
+self.addEventListener("activate", (event) => {
+  console.log("Service Worker activating...");
+  event.waitUntil(
+    self.clients.claim() // Takes control of all open clients immediately
+  );
+});
+```
+
+<Callout type="warning" emoji="⚠️">
+  Warning: Using skipWaiting() can cause unexpected behavior if the old service
+  worker is still managing cached data. Always handle updates carefully!
+</Callout>
+
+**Example: Checking for Updates Manually**
+
+If you want to prompt users when a new update is available, you can listen for `controllerchange` in your main app script:
+
+```js filename="sw.js"
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").then((registration) => {
+    registration.addEventListener("updatefound", () => {
+      const newWorker = registration.installing;
+      newWorker.addEventListener("statechange", () => {
+        if (
+          newWorker.state === "installed" &&
+          navigator.serviceWorker.controller
+        ) {
+          alert("A new update is available. Please refresh the page.");
+        }
+      });
+    });
+  });
+}
+```
+
+## Service Worker Lifespan
+
+Service workers function independently of web pages, running in the background on a separate thread. They are started and stopped by the browser based on activity, meaning they don’t persist in memory continuously. Instead, they wake up when a network request or an event (such as a push notification or sync request) occurs within their scope.
+
+Since they don’t retain in-memory data between runs, important information should be stored in IndexedDB or other persistent storage solutions.
+
+If a service worker is terminated due to inactivity, it automatically restarts when it receives an event:
+
+```js filename="sw.js"
+self.addEventListener("fetch", (event) => {
+  event.respondWith(
+    caches.match(event.request).then((response) => {
+      return response || fetch(event.request);
+    })
+  );
+});
+```
+
+What this does:
+
+- If the request is cached, it returns the cached version.
+- If not, it fetches the request from the network, waking up the service worker.
+
+**How to Manually Check Service Worker Lifespan in DevTools**
+
+- Open Chrome DevTools (F12 or Ctrl + Shift + I).
+- Go to the Application tab → Service Workers.
+- Look for "Running" or "Stopped" next to your service worker
+- Click "Update" or "Stop", then trigger an event (e.g., refresh the page) to see it restart.
+
+## Capabilities
+
+A registered and active service worker uses a thread with a completely different execution lifecycle from your PWA's main thread. However, by default, the service worker file itself has no behavior. It won't cache or serve any resources; these are things your code needs to do. You'll find out how in the following chapters.
+
+Service worker's capabilities aren't just for proxy or serving HTTP requests. Other features are available on top of it for other purposes, such as background code execution, web push notifications, and process payments.
+
+This covers the foundation of Service Workers. Next, we’ll explore caching strategies and other advanced topics.
