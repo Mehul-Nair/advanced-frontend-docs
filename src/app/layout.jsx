@@ -5,6 +5,7 @@ import { getPageMap } from "nextra/page-map";
 import "nextra-theme-docs/style.css";
 import "./globals.css";
 import Image from "next/image";
+import Logo from "@/components/Logo";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -23,20 +24,13 @@ export const metadata = {
 
 const banner = (
   <Banner storageKey="some-key">
-    Advanced Frontend Documentation 1.0 is released 🎉
+    Because the Internet Needed More Frontend Docs... 😆
   </Banner>
 );
 const navbar = (
   <Navbar
     align="right"
-    logo={
-      <Image
-        alt="Dept"
-        height={28}
-        width={111}
-        src={`https://www.deptagency.com/wp-content/uploads/2024/09/dept-logo.svg`}
-      />
-    }
+    logo={<Logo />}
     // ... Your additional navbar options
   />
 );
@@ -57,7 +51,7 @@ export default async function RootLayout({ children }) {
       ></Head>
       <body>
         <Layout
-          darkMode={true}
+          // darkMode={true}
           banner={banner}
           navbar={navbar}
           pageMap={await getPageMap()}
