@@ -26,5 +26,8 @@ export default {
     "micro-frontends": {
         title: 'Micro Frontends',
         type: 'doc'
+    },
+    "get-started": {
+        display: 'hidden'
     }
 }
