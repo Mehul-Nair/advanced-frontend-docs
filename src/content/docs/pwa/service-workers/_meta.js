@@ -14,5 +14,5 @@ export default {
     "periodic-sync": {
         title: 'Periodic Sync',
         type: 'doc'
-    }
+    },
 }

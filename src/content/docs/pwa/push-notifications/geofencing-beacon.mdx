@@ -1,17 +1,26 @@
----
-title: Understanding Push Notifications
-description: A structured approach to push notifications documentation.
----
+import { Steps } from "nextra/components";
 
-# Geofencing and Beacon Integrations
+## What is Geofencing ?
 
-Geofencing is a location-based service that uses GPS, RFID, Wi-Fi, or cellular data to trigger a pre-programmed action when a mobile device enters or exits a virtual 1 perimeter set up around a specific geographic location, known as a geofence. These virtual perimeters can range in size from a small radius around a store to a large area like a city or neighborhood. The core concept revolves around monitoring a device's location in real-time and comparing it to these defined boundaries. When a device's location crosses a geofence, a pre-defined action, such as sending a push notification, is initiated.
+Geofencing is a location-based service that uses GPS, RFID, Wi-Fi, or cellular data to trigger a pre-programmed action when a mobile device enters or exits a virtual 1 perimeter set up around a specific geographic location, known as a geofence. These virtual perimeters can range in size from a small radius around a store to a large area like a city or neighborhood. The core concept revolves around monitoring a device's location in real-time and comparing it to these defined boundaries. When a device's location crosses a geofence, a pre-defined action, such as sending a push notification, is initiated
 
 Geofencing relies on the device's location services being enabled and the app having the necessary permissions to access this data. The accuracy of geofencing can vary depending on the technology used and environmental factors, such as signal strength and obstructions. Modern geofencing solutions often incorporate features like dwell time (how long a device stays within a geofence) and multiple geofence management to provide more nuanced and targeted triggers
 
-**Code Example: Basic Geofencing in a PWA**
+## Use Cases
 
-```js filename="main.js"
+- **Retail:** Retailers utilize geofencing to send promotional offers when customers enter a store’s area, alert them about nearby sales or events, and provide in-store navigation or product information.
+- **Transportation:** Transportation services use geofencing to notify passengers of arrival times or delays at bus stops or train stations, provide ride-sharing updates or directions, and alert drivers about traffic congestion or road closures.
+- **Marketing & Advertising:** Marketing and advertising professionals leverage geofencing to target ads based on location, deliver location-specific content or offers, and analyze customer foot traffic and behavior.
+- **Security & Safety:** Security and safety applications employ geofencing to send alerts when a child or elderly person leaves a designated safe zone, monitor the location of valuable assets, and provide emergency alerts or notifications.
+- **Smart Homes:** Smart home systems integrate geofencing to automatically adjust thermostats or lighting when residents enter or leave home and to automatically open garage doors.
+
+## Implementation
+
+<Steps>
+  ## Request Location Permissions 
+  Before tracking location, you must request user permission.
+
+```js filename="sw.js"
 async function requestLocationPermission() {
   if (!navigator.geolocation) {
     console.error("Geolocation is not supported by this browser.");
@@ -37,3 +46,77 @@ requestLocationPermission()
   .then(() => console.log("User granted location access"))
   .catch(() => console.log("User denied location access"));
 ```
+
+## Track User's Location
+
+Once permission is granted, we can use the `watchPosition()` from `navigator.geolocation.watchPosition()` to track user movement.
+The `watchPosition()` continuosly updates the location as the user moves whereas if we want to fetch location only once we can make use of the `getCurrentPosition()`
+
+```js filename="js"
+function trackUserLocation() {
+  if (!navigator.geolocation) {
+    console.error("Geolocation is not supported by this browser.");
+    return;
+  }
+
+  navigator.geolocation.watchPosition(
+    (position) => {
+      const { latitude, longitude } = position.coords;
+      console.log("User's Current Location:", latitude, longitude);
+      checkGeofence(latitude, longitude);
+    },
+    (error) => {
+      console.error("Error tracking location:", error.message);
+    },
+    {
+      enableHighAccuracy: true, // Improves accuracy but consumes more battery
+      maximumAge: 0, // Ensures fresh location updates
+      timeout: 10000, // Time before error is thrown
+    }
+  );
+}
+
+// Call function to start tracking
+trackUserLocation();
+```
+
+## Compare User Location with Predefined Geofences
+
+Now, define geofences and check if the user enters/exits one.
+
+```js filename="main.js"
+const geofences = [
+  { name: "Office", lat: 37.7749, lng: -122.4194, radius: 500 }, // Example location
+  { name: "Home", lat: 37.7739, lng: -122.4312, radius: 300 },
+];
+
+function checkGeofence(userLat, userLng) {
+  geofences.forEach((geofence) => {
+    const distance = getDistance(userLat, userLng, geofence.lat, geofence.lng);
+
+    if (distance < geofence.radius) {
+      console.log(`User entered ${geofence.name} geofence`);
+      notifyUser(`You have entered ${geofence.name}`);
+    } else {
+      console.log(`User outside ${geofence.name}`);
+    }
+  });
+}
+
+// Haversine formula to calculate distance in meters
+function getDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // Radius of Earth in meters
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in meters
+}
+```
+
+</Steps>

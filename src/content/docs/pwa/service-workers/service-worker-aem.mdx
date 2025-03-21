@@ -1,0 +1,148 @@
+---
+title: "Registering a Service Worker in AEM"
+description: "Enable offline capabilities and improve performance by integrating a Service Worker in your AEM-powered website."
+---
+
+# Understanding the Goal
+
+The goal is to enable offline capabilities and improve performance by registering a Service Worker in your AEM-powered website. We'll separate the registration logic from the Service Worker's core functionality for better organization and maintainability.
+
+## Step 1: Create the `sw-registration` Component
+
+**Purpose:** This component handles the registration of the Service Worker.
+
+**Location:** Inside your AEM project's `ui.apps` module, under the `apps` folder, create a new folder named `sw-registration`. The full path might look like:
+
+```
+/apps/your-project/components/sw-registration
+```
+
+**Structure:** Inside the `sw-registration` folder, create at least:
+
+- `js.html` (for the registration script)
+- `.content.xml` (for component definition)
+
+## Step 2: Create `js.html` in `sw-registration`
+
+This file contains the JavaScript code to register the Service Worker.
+
+```js
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", function () {
+    navigator.serviceWorker
+      .register("/sw/sw.js")
+      .then(function (registration) {
+        console.log("ServiceWorker registered with scope:", registration.scope);
+      })
+      .catch(function (err) {
+        console.log("ServiceWorker registration failed:", err);
+      });
+  });
+}
+```
+
+### Explanation
+
+- Checks if the `serviceWorker` API is supported.
+- Registers the Service Worker after the page loads.
+- Uses `.then()` and `.catch()` to handle success and failure.
+
+## Step 3: Create the `sw` Component
+
+**Purpose:** This component serves the Service Worker file.
+
+**Location:** Inside your AEM project's `ui.apps` module:
+
+```
+/apps/your-project/components/sw
+```
+
+**Structure:** Inside the `sw` folder, create:
+
+- `js.html` (for the Service Worker logic)
+- `.content.xml` (for component definition)
+
+## Step 4: Create `js.html` in `sw`
+
+This file contains the Service Worker logic.
+
+```js
+self.addEventListener("install", function (event) {
+  event.waitUntil(
+    caches.open("v1").then(function (cache) {
+      return cache.addAll([
+        "/",
+        "/content/your-project/home.html",
+        "/etc.clientlibs/your-project/clientlibs/site/resources/style.css",
+        "/etc.clientlibs/your-project/clientlibs/site/resources/script.js",
+      ]);
+    })
+  );
+});
+
+self.addEventListener("fetch", function (event) {
+  event.respondWith(
+    caches.match(event.request).then(function (response) {
+      return response || fetch(event.request);
+    })
+  );
+});
+```
+
+### Explanation
+
+- `install` event caches specified assets.
+- `fetch` event serves cached resources when available.
+
+## Step 5: Create Content Nodes
+
+**Purpose:** To make the components accessible via URLs.
+
+**Location:** Inside the `ui.content` module:
+
+```
+/content/your-project-name/sw
+/content/your-project-name/sw-registration
+```
+
+## Step 6: Set `sling:resourceType` for `sw`
+
+**Configuration:**
+
+- In `/content/sw`, add a property:
+  - `sling:resourceType` = `your-project/components/sw`
+
+## Step 7: Set `sling:resourceType` for `sw-registration`
+
+**Configuration:**
+
+- In `/content/sw-registration`, add a property:
+  - `sling:resourceType` = `your-project/components/sw-registration`
+
+## Step 8: Load `sw-registration` Script in `header.html`
+
+Include the Service Worker registration script on every page:
+
+```html
+<script src="/sw-registration.js"></script>
+```
+
+## Step 9: Configure AEM Dispatcher
+
+To load the Service Worker from the domain level, add the following rewrite rules in the dispatcher:
+
+- **Request:** `/sw-registration.js`
+  **Rewrite to:** `/content/your-project-name/sw-registration.js`
+- **Request:** `/sw.js`
+  **Rewrite to:** `/content/your-project-name/sw.js`
+
+## Important Notes
+
+- **Client Libraries:** Ensure Service Worker and cached resources are correctly included.
+- **HTTPS Required:** Service Workers need HTTPS (except on localhost).
+- **Scope:** Placement of `sw.js` determines scope. Place in root for full site control.
+- **Caching Strategies:** Adjust caching strategies for production (e.g., network-first, stale-while-revalidate).
+- **AEM Dispatcher:** Ensure it allows `/sw-registration.js` and `/sw.js`.
+- **Debugging:** Use browser DevTools (`Application` tab) to inspect and debug.
+
+By following these steps, your AEM project will have Service Worker support for offline capabilities and performance improvements. Adapt configurations as needed.
