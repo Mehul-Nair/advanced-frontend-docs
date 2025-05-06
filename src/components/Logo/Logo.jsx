@@ -14,7 +14,9 @@ const Logo = () => {
 
   const logoSrc = useMemo(() => handleLogo(), [theme, systemTheme]);
 
-  return <img key={logoSrc} alt="Dept" height={28} width={111} src={logoSrc} />;
+  return (
+    <Image key={logoSrc} alt="Dept" height={28} width={111} src={logoSrc} />
+  );
 };
 
 export default Logo;
