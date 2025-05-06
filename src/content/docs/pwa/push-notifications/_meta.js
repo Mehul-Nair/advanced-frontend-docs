@@ -7,4 +7,12 @@ export default {
         title: 'Geofencing & Beacon Integrations',
         type: 'doc'
     },
+    "push-api": {
+        title: 'Push Apis',
+        type: 'doc'
+    },
+    "advance-caching": {
+        title: 'Advance Caching Techniques',
+        type: 'doc'
+    }
 }

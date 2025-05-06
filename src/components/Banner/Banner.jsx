@@ -53,7 +53,10 @@ export default function Banner() {
                 <Rocket size={20} />
                 Start Learning
               </button>
-              <button className="button button-secondary">
+              <button
+                className="button button-secondary"
+                onClick={() => router.push("/demos")}
+              >
                 <Flame size={20} />
                 Explore Demos
               </button>

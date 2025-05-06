@@ -1,0 +1,240 @@
+---
+title: Push Apis
+description: A structured approach to understand push api.
+---
+
+import { Callout } from "nextra/components";
+
+## What is the Push API ?
+
+The Push API is a web standard that allows web applications, including PWAs, to receive push messages from a server, even when the user isn't actively using the app. This enables real-time updates, notifications, and other forms of communication. It's built on top of service workers, which act as intermediaries between your PWA and the server.
+
+The Push API in PWAs allows web applications to send notifications to users even when the app is closed or not in the foreground. This is done using Service Workers and requires a Push Notification Service (e.g., Firebase Cloud Messaging - FCM).
+
+The Push Api enable servers to initiate communication with client applications (web browsers, mobile apps) without the client needing to constantly request data. This "push" mechanism allows for real-time updates, notifications, and immediate delivery of information to users.
+
+## How push api works ?
+
+### Subscription/Registration
+
+- The client application (browser or mobile app) first needs to establish a connection and subscribe or register to receive push messages.
+- This typically involves obtaining a unique identifier or endpoint from a push service.
+- This identifier is then sent to the application's backend server.
+
+### Push Service/Broker
+
+- A push service or broker acts as an intermediary between the application's backend server and the client device.
+- This service handles the complex task of delivering messages efficiently and reliably.
+- Examples include Firebase Cloud Messaging (FCM), Apple Push Notification Service (APNs), and web push services.
+
+### Server-Initiated Messages
+
+- When the application's backend server needs to send a message, it sends a request to the push service.
+- This request includes the message payload and the client's identifier or endpoint.
+
+### Message Delivery
+
+- The push service routes the message to the client device.
+- For mobile apps, the device's operating system handles the message delivery.
+- For web browsers, a service worker (a background script) handles the message.
+
+### Client-Side Processing
+
+- Upon receiving the message, the client application processes it.
+- This might involve displaying a notification, updating the application's user interface, or performing other actions.
+- In the case of web browsers, the service worker uses the Notifications API to display system-level notifications.
+
+## Implementation
+
+Inorder to setup the client for notification follow the below steps
+
+### Request Notification Permission
+
+First, check if the Push API is supported and request permission from the user.
+
+```js filename="index.js"
+async function requestNotificationPermission() {
+  if (!("Notification" in window)) {
+    console.log("Notifications not supported in this browser.");
+    return;
+  }
+
+  const permission = await Notification.requestPermission();
+
+  if (permission === "granted") {
+    console.log("User granted notification permission.");
+    await registerServiceWorker();
+  } else {
+    console.log("User denied notification permission.");
+  }
+}
+
+requestNotificationPermission();
+```
+
+### Subscribe to Push Notifications
+
+After registering the Service Worker, subscribe to Push Notifications using the Push API.
+
+```js filename="index.js"
+async function subscribeToPush(registration) {
+  if (!("PushManager" in window)) {
+    console.log("Push API not supported.");
+    return;
+  }
+
+  try {
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: "<YOUR_PUBLIC_VAPID_KEY>",
+    });
+
+    console.log("Push Subscription:", JSON.stringify(subscription));
+
+    // Send subscription details to your backend
+    await fetch("/subscribe", {
+      method: "POST",
+      body: JSON.stringify(subscription),
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    console.error("Push subscription failed:", error);
+  }
+}
+```
+
+## Handle Push Notifications in Service Worker
+
+The Service Worker listens for push events and displays notifications.
+
+```js filename="index.js"
+self.addEventListener("push", (event) => {
+  const data = event.data ? event.data.json() : {};
+  console.log("Push event received:", data);
+
+  event.waitUntil(
+    self.registration.showNotification(data.title || "New Notification", {
+      body: data.body || "You have a new message!",
+      icon: "/icon.png",
+      badge: "/badge.png",
+      actions: [
+        { action: "open", title: "Open App" },
+        { action: "dismiss", title: "Dismiss" },
+      ],
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  if (event.action === "open") {
+    clients.openWindow("/");
+  }
+});
+```
+
+## Selecting push notification service:
+
+To implement the Push API, we need a push service. This can be achieved in two ways:
+
+- Using a web push service library like web-push and node js backend.
+- Utilizing push notification brokers such as Firebase Cloud Messaging (FCM) or Apple Push Notification Service (APNs).
+
+The client-side structure for the app remains mostly the same for both implementation.
+
+### Using Node.js & Web Push:
+
+##### Install web-push
+
+```sh filename="sh"
+npm install web-push
+```
+
+##### Generate VAPID Keys (only once):
+
+```sh filename="sh"
+npx web-push generate-vapid-keys
+```
+
+##### Use the public VAPID key in the frontend.
+
+Copy the Public VAPID Key (it looks like a long base64 string).Now, use the public key when subscribing the user to push notifications as shown in the client setup
+
+##### Send push notifications from your Node.js server:
+
+```js filename="server.js"
+const webPush = require("web-push");
+
+// VAPID Keys (replace with your generated keys)
+const vapidKeys = {
+  publicKey: "<YOUR_PUBLIC_VAPID_KEY>",
+  privateKey: "<YOUR_PRIVATE_VAPID_KEY>",
+};
+
+// Set VAPID details
+webPush.setVapidDetails(
+  "mailto:your-email@example.com",
+  vapidKeys.publicKey,
+  vapidKeys.privateKey
+);
+
+// Push subscription object (from frontend)
+const pushSubscription = {
+  endpoint: "<USER_PUSH_ENDPOINT>",
+  keys: {
+    auth: "<AUTH_KEY>",
+    p256dh: "<P256DH_KEY>",
+  },
+};
+
+// Payload (Notification data)
+const payload = JSON.stringify({
+  title: "Hello from PWA!",
+  body: "This is a push notification.",
+  icon: "/icon.png",
+});
+
+// Send push notification
+webPush
+  .sendNotification(pushSubscription, payload)
+  .then(() => console.log("Push sent successfully!"))
+  .catch((error) => console.error("Error sending push:", error));
+```
+
+<Callout>
+Since Service Workers & Push API require HTTPS, you should run your frontend on HTTPS only
+
+Run your React/Next.js app with HTTPS:
+
+```sh filename="sh"
+HTTPS=true npm start
+```
+
+**Option 2: Use a Secure Tunnel (e.g., Ngrok)**
+
+- Install ngrok:
+
+```sh filename="sh"
+npm install -g ngrok
+```
+
+- Start your frontend on port 3000:
+
+```sh filename="sh"
+npm start
+```
+
+- Run ngrok to expose it via HTTPS:
+
+```sh filename="sh"
+ngrok http 3000
+```
+
+It will give you a public HTTPS URL, e.g.:
+
+```sh filename="sh"
+https://your-ngrok-url.ngrok.io
+```
+
+</Callout>
